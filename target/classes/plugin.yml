@@ -1,0 +1,26 @@
+main: com.blaxout1213.WeaponPoison.WeaponPoison
+name: WeaponPoison
+version: 0.01
+api-version: 1.20
+commands:
+   weaponpoison:
+      description: Check status or explain poison/venom
+      usage: /weaponpoison [status|help] [venom|poison]
+   poisonthis:
+      description: Poisons current item
+      usage: /poisonthis severity
+   venomthis:
+      description: Venoms current item
+      usage: /poisonthis severity
+   gaming:
+      description: Gives a Diamond Sword (p++)
+      usage: /gaming
+   rangedgamer:
+      description: Gives arrows (p++)
+      usage: /rangedgamer
+   enemygamer:
+      description: Spawns a Zombie (p++)
+      usage: /enemygamer
+   rangedenemygamer:
+      description: Spawns a Skeleton (p++)
+      usage: /rangedenemygamer
