@@ -11,6 +11,9 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.logging.Level;
 
+import com.blaxout1213.WeaponPoison.metadata.PoisonedEntityDataType;
+import org.bukkit.NamespacedKey;
+import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 
 import com.blaxout1213.WeaponPoison.WeaponPoison;
@@ -20,8 +23,11 @@ import com.blaxout1213.WeaponPoison.tasks.PoisonedEntityTask.ClearReason;
 
 public class SavePlayerDataUtil
 {
-	public static void saveDisconnector(Player p) throws IOException
+	public static final NamespacedKey POISONED_ENTITY = new NamespacedKey(WeaponPoison.PLUGIN, "poisoned_entity");
+	public static void saveDisconnector(LivingEntity p, PoisonedEntityTask task)
 	{
+		p.getPersistentDataContainer().set(POISONED_ENTITY, new PoisonedEntityDataType(), task);
+		/*
 		WeaponPoison.PLUGIN.getLogger().log(Level.INFO, "Attempting to save " + p.getName() + " data");
 		String filename = "plugins/WeaponPoison/disconnectedplayers/" + p.getUniqueId().toString() + ".ser";
 		File file = new File(filename);
@@ -35,6 +41,7 @@ public class SavePlayerDataUtil
 		poisonTaskMeta.getPoisonedEntityTask().clearPoison(ClearReason.DISCONNECT);
 		out.close();
 		fos.close();
+		 */
 	}
 	
 	public static PoisonedEntityTask readDisconnector(Player p, int compensation) throws FileNotFoundException, IOException, ClassNotFoundException, EntityNotFoundException

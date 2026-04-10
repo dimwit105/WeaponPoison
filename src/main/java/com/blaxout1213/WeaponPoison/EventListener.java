@@ -3,7 +3,12 @@ package com.blaxout1213.WeaponPoison;
 import java.util.ArrayList;
 import java.util.logging.Level;
 
+import com.blaxout1213.WeaponPoison.metadata.*;
+import com.blaxout1213.WeaponPoison.util.*;
+import io.papermc.paper.tag.EntitySetTag;
+import io.papermc.paper.tag.EntityTags;
 import org.bukkit.Material;
+import org.bukkit.Tag;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.EntityCategory;
 import org.bukkit.entity.HumanEntity;
@@ -29,17 +34,8 @@ import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 
-import com.blaxout1213.WeaponPoison.metadata.ItemPoisonData;
-import com.blaxout1213.WeaponPoison.metadata.ItemPoisonedDataType;
-import com.blaxout1213.WeaponPoison.metadata.PoisonCausingEntity;
-import com.blaxout1213.WeaponPoison.metadata.PoisonCausingEntityMeta;
-import com.blaxout1213.WeaponPoison.metadata.PoisonedEntityTaskMeta;
 import com.blaxout1213.WeaponPoison.tasks.PoisonedEntityTask;
 import com.blaxout1213.WeaponPoison.tasks.PoisonedEntityTask.ClearReason;
-import com.blaxout1213.WeaponPoison.util.DamageUtil;
-import com.blaxout1213.WeaponPoison.util.EntityNotFoundException;
-import com.blaxout1213.WeaponPoison.util.MessageUtil;
-import com.blaxout1213.WeaponPoison.util.SavePlayerDataUtil;
 
 public class EventListener implements Listener
 {
@@ -79,9 +75,9 @@ public class EventListener implements Listener
 	@EventHandler
 	public void onEntityHeal(EntityRegainHealthEvent event)
 	{
-		if(event.getEntity().hasMetadata(WeaponPoison.WEAPONPOISONED_METADATA))
+		if(event.getEntity() instanceof LivingEntity le && PoisonedEntitiesManager.has(le))
 		{
-			event.setAmount(DamageUtil.getWeaponPoisonTask(event.getEntity()).getHealingMultiplier()*event.getAmount());
+			event.setAmount(PoisonedEntitiesManager.get(le).getHealingMultiplier()*event.getAmount());
 		}
 	}
 	
@@ -91,18 +87,18 @@ public class EventListener implements Listener
 		HumanEntity ent = event.getEntity();
 		if(ent instanceof Player)
 		{
-			if(event.getExhaustionReason() == ExhaustionReason.REGEN && ent.hasMetadata(WeaponPoison.WEAPONPOISONED_METADATA))
+			if(event.getExhaustionReason() == ExhaustionReason.REGEN && PoisonedEntitiesManager.has(ent))
 			{
-				event.setExhaustion((float) (DamageUtil.getWeaponPoisonTask(ent).getHealingMultiplier()*event.getExhaustion()));
+				event.setExhaustion((float) (PoisonedEntitiesManager.get(ent).getHealingMultiplier()*event.getExhaustion()));
 			}
 		}
 	}
 	@EventHandler
 	public void onDeath(EntityDeathEvent event)
 	{
-		if(event.getEntity().hasMetadata(WeaponPoison.WEAPONPOISONED_METADATA))
+		if(PoisonedEntitiesManager.has(event.getEntity()))
 		{
-			PoisonedEntityTask data = DamageUtil.getWeaponPoisonTask(event.getEntity());
+			PoisonedEntityTask data = PoisonedEntitiesManager.get(event.getEntity());
 			data.clearPoison(ClearReason.DEATH);
 			if(event instanceof PlayerDeathEvent && data.isDeathTick())
 			{
@@ -117,56 +113,21 @@ public class EventListener implements Listener
 	public void onPlayerDisconnect(PlayerQuitEvent event)
 	{
 		Player p = event.getPlayer();
-		try
+		WeaponPoison.PLUGIN.getLogger().log(Level.INFO, p.getName() + " left");
+		if(PoisonedEntitiesManager.has(p))
 		{
-			WeaponPoison.PLUGIN.getLogger().log(Level.INFO, p.getName() + " left");
-			if(p.hasMetadata(WeaponPoison.WEAPONPOISONED_METADATA))
-			{
-				SavePlayerDataUtil.saveDisconnector(p);
-			}	
-			
+			SavePlayerDataUtil.saveDisconnector(p, PoisonedEntitiesManager.get(p));
 		}
-		catch(Exception e)
-		{
-			e.printStackTrace();
-		}
-		/*
-		NBTEntity nbte = new NBTEntity(p);
-		if(p.hasMetadata(WeaponPoison.WEAPONPOISONED_METADATA))
-		{
-			PoisonedEntityTaskMeta poisonTaskMeta = (PoisonedEntityTaskMeta) p.getMetadata(WeaponPoison.WEAPONPOISONED_METADATA).get(0);
-			nbte.getPersistentDataContainer().setInteger(WeaponPoison.WEAPONPOISONNBT_SEVERITY, poisonTaskMeta.getPoisonedEntityTask().getSeverity());
-			nbte.getPersistentDataContainer().setInteger(WeaponPoison.WEAPONPOISONNBT_DAMAGE_TIMER, poisonTaskMeta.getPoisonedEntityTask().getDamageTimer());
-			//NBT.modifyPersistentData(p, nbt -> {
-				//nbt.setInteger(WeaponPoison.WEAPONPOISONNBT_SEVERITY, poisonTaskMeta.getPoisonedEntityTask().getSeverity());
-				//nbt.setInteger(WeaponPoison.WEAPONPOISONNBT_DAMAGE_TIMER, poisonTaskMeta.getPoisonedEntityTask().getDamageTimer());
-			//});
-			poisonTaskMeta.getPoisonedEntityTask().clearPoison();
-		}
-		*/
 	}
 	
 	@EventHandler
 	public void onPlayerConnect(PlayerJoinEvent event)
 	{
 		Player p = event.getPlayer();
-		try
+		if(p.getPersistentDataContainer().has(SavePlayerDataUtil.POISONED_ENTITY))
 		{
-			int compensation = 4;
-			PoisonedEntityTask task = SavePlayerDataUtil.readDisconnector(p, compensation);
-			PoisonedEntityTaskMeta poisonTaskMeta = new PoisonedEntityTaskMeta(WeaponPoison.PLUGIN, task);
-			
-			WeaponPoison.PLUGIN.getFoliaLib().getImpl().runAtEntityTimer(p, task, compensation*20, 20);
-			p.setMetadata(WeaponPoison.WEAPONPOISONED_METADATA, poisonTaskMeta);
-			
-		}
-		catch(EntityNotFoundException e)
-		{
-			WeaponPoison.PLUGIN.getLogger().log(Level.WARNING, "Somehow, Bukkit did not find the entity for " + p.getName() + ", despite having data saved for them.");
-		}
-		catch(Exception e)
-		{
-			WeaponPoison.PLUGIN.getLogger().log(Level.INFO, "Exception loading " + p.getName() + "'s data. Probably just didnt have any");
+			var pet = p.getPersistentDataContainer().get(SavePlayerDataUtil.POISONED_ENTITY, new PoisonedEntityDataType());
+			PoisonedEntitiesManager.start(p, pet);
 		}
 	}
 	
@@ -174,7 +135,7 @@ public class EventListener implements Listener
 	public void onPlayerConsume(PlayerItemConsumeEvent event)
 	{
 		Player p = event.getPlayer();
-		if(p.hasMetadata(WeaponPoison.WEAPONPOISONED_METADATA) && event.getItem().getType() == Material.MILK_BUCKET)
+		if(PoisonedEntitiesManager.has(p) && event.getItem().getType() == Material.MILK_BUCKET)
 		{
 			DamageUtil.getWeaponPoisonTask(p).applyAntidote();
 		}
@@ -187,9 +148,10 @@ public class EventListener implements Listener
 			PotionEffect pe = event.getNewEffect();
 			LivingEntity le = (LivingEntity) event.getEntity();
 			int severity = (int) Math.floor((pe.getDuration() / 20.0D)*(pe.getAmplifier()+1));
-			if(le.getCategory() != EntityCategory.UNDEAD)
+			boolean venom = pe.getAmplifier() > 0;
+			if(!Tag.ENTITY_TYPES_UNDEAD.isTagged(le.getType()))
 			{
-				applyPoison(le, severity, false);
+				applyPoison(le, severity, venom);
 				event.setCancelled(true);
 			}
 		}

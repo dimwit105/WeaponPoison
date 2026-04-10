@@ -35,8 +35,6 @@ public class WeaponPoison extends JavaPlugin
 	public static YamlConfiguration messages = YamlConfiguration.loadConfiguration(messagesFile);
 	public static final String POISONABLE_METADATA = "WeaponPoisonCauserMetaData";
 	public static final String WEAPONPOISONED_METADATA = "WeaponPoisonMetaData";
-	public static final String WEAPONPOISONNBT_SEVERITY = "WeaponpoisonSeverity";
-	public static final String WEAPONPOISONNBT_DAMAGE_TIMER = "WeaponpoisonTimer";
 	public static final Random RAND = new Random();
 	
 	//public static final String SEVERITY_TAG = "Severity";
@@ -265,11 +263,11 @@ public class WeaponPoison extends JavaPlugin
 		messages.addDefault("Commands.Info.Venomed.Damage", "This will do &2%d&f damage per tick");
 		
 		messages.addDefault("Commands.Info.Poison.Help.1", "Poison will deal damage over time, every 18 seconds equal to (severity+4) / 5. Every time it does damage, its severity will lessen, until completely wearing off at 0.");
-		messages.addDefault("Commands.Info.Poison.Help.2", "It will also reduce your incoming healing as a function of severity. More severity, means more healing reduction, starting at 5 severity. Healing is reduced by 50% at 25 severity.");
+		messages.addDefault("Commands.Info.Poison.Help.2", "It will also reduce your incoming healing as a function of severity. More severity, means more healing reduction. Healing is reduced by 50% at 15 severity, 75% at 30, 93.75% at 60");
 		messages.addDefault("Commands.Info.Poison.Help.3", "It can be counteracted with milk, which will drastically reduce the severity of your poison, and in most cases, cure it. Extraordinarily strong poisons may not be cured with just one, however.");
 		
 		messages.addDefault("Commands.Info.Venom.Help.1", "Venom, like poison, will also deal damage over time. What makes it different from poison, is that it will get worse over time, instead of wearing off.");
-		messages.addDefault("Commands.Info.Venom.Help.2", "It gets worse remarkably fast, and without a quick milk to down, it will eventually kill anything. Once a milk is drunk, it will convert to poison if this isn't enough to cure it.");
+		messages.addDefault("Commands.Info.Venom.Help.2", "It gets worse at the same rate poison would usually get better, and without milk, it will eventually kill anything. Once a milk is drunk, it will convert to poison if this isn't enough to cure it.");
 		
 		/*
 		if(!messagesFile.exists())
