@@ -6,10 +6,11 @@ import com.blaxout1213.WeaponPoison.tasks.PoisonedEntityTask;
 import org.bukkit.entity.LivingEntity;
 
 import java.util.HashMap;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class PoisonedEntitiesManager
 {
-    private static final HashMap<LivingEntity, PoisonedEntityTask> poisonedEntities = new HashMap<>();
+    private static final ConcurrentHashMap<LivingEntity, PoisonedEntityTask> poisonedEntities = new ConcurrentHashMap<>();
     public static void add(LivingEntity le, ItemPoisonData ipd)
     {
         if(poisonedEntities.containsKey(le))
@@ -33,8 +34,16 @@ public class PoisonedEntitiesManager
     }
     public static PoisonedEntityTask remove(LivingEntity le)
     {
-        poisonedEntities.get(le).cancel();
-        return poisonedEntities.remove(le);
+        var task = poisonedEntities.remove(le);
+        if(task != null)
+            task.cancel();
+        return task;
+    }
+    public static void violentRemove(LivingEntity le)
+    {
+        var task = remove(le);
+        if(task != null)
+            le.damage(task.getRemainingDamage());
     }
     public static void start(LivingEntity le, PoisonedEntityTask task)
     {

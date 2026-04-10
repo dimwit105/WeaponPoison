@@ -14,8 +14,6 @@ import org.bukkit.projectiles.BlockProjectileSource;
 
 import com.blaxout1213.WeaponPoison.metadata.ItemPoisonData;
 import com.blaxout1213.WeaponPoison.metadata.ItemPoisonedDataType;
-import com.blaxout1213.WeaponPoison.metadata.PoisonCausingEntity;
-import com.blaxout1213.WeaponPoison.metadata.PoisonCausingEntityMeta;
 
 public class DispenserShooter implements Listener
 {
@@ -50,8 +48,7 @@ public class DispenserShooter implements Listener
 					if(container.has(WeaponPoison.POISONED_ITEM_KEY))
 					{
 						ItemPoisonData ipd = container.get(WeaponPoison.POISONED_ITEM_KEY, new ItemPoisonedDataType());
-						PoisonCausingEntityMeta pcem = new PoisonCausingEntityMeta(WeaponPoison.PLUGIN, new PoisonCausingEntity(ipd.getSeverity(), ipd.getVenom()));
-						event.getEntity().setMetadata(WeaponPoison.POISONABLE_METADATA, pcem);
+						event.getEntity().getPersistentDataContainer().set(WeaponPoison.POISONED_ITEM_KEY, new ItemPoisonedDataType(), ipd);
 					}
 				}
 			}

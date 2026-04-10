@@ -8,6 +8,8 @@ import java.nio.ByteBuffer;
 import java.util.UUID;
 import java.util.logging.Level;
 
+import com.blaxout1213.WeaponPoison.util.PoisonedEntitiesManager;
+import com.blaxout1213.WeaponPoison.util.SavePlayerDataUtil;
 import org.bukkit.Bukkit;
 import org.bukkit.Color;
 import org.bukkit.Particle;
@@ -23,10 +25,10 @@ import com.blaxout1213.WeaponPoison.WeaponPoison;
 import com.blaxout1213.WeaponPoison.util.DamageUtil;
 import com.blaxout1213.WeaponPoison.util.MessageUtil;
 
-public class PoisonedEntityTask extends CancellableRunnable implements Serializable 
+public class PoisonedEntityTask extends CancellableRunnable
 {
 	private static final int VENOM_SEVERITY_DRAIN = -1;
-	private static final long serialVersionUID = 3L;
+	private static final double HEALING_PENALTY_BASE = Math.pow(0.5D, (1D/20D));
 	private transient LivingEntity livingEntity;
 	private transient boolean deathTick = false;
 	private transient double damage = recalculateDamage();
@@ -57,14 +59,16 @@ public class PoisonedEntityTask extends CancellableRunnable implements Serializa
 		ByteBuffer bb = ByteBuffer.wrap(bytes);
 		UUID entity = new UUID(bb.getLong(), bb.getLong());
 		livingEntity = (LivingEntity) Bukkit.getEntity(entity);
+		long timeSaved = bb.getLong();
 		severity = bb.getInt();
 		severityDrain = bb.getInt();
 		damageTimer = bb.getInt();
 	}
+
 	//designed to be run once per second.
 	public void run()
 	{
-		if(livingEntity.isValid() && livingEntity.getType() != EntityType.CAVE_SPIDER)
+		if(livingEntity != null &&livingEntity.isValid() && livingEntity.getType() != EntityType.CAVE_SPIDER)
 		{
 			damageTimer--;
 			//spawnEffectParticles((int) damage);
@@ -122,7 +126,7 @@ public class PoisonedEntityTask extends CancellableRunnable implements Serializa
 	{
 		if(severityDrain <= 0)
 		{
-			return Double.MAX_VALUE;
+			return 2048D*2D;
 		}
 		double sum = 0.0D;
 		for(int i = severity; i > 0; i -= severityDrain)
@@ -138,7 +142,7 @@ public class PoisonedEntityTask extends CancellableRunnable implements Serializa
 	public double getHealingMultiplier()
 	{
 		//0.9548416039104165 is the number that makes this 0.5 at 15, 0.25 at 30, and 0.125 at 60, etc. Basically, effective healing doubles every 15 severity.
-		return Math.min(1.0D, Math.pow(0.9548416039104165D, severity));
+		return Math.min(1.0D, Math.pow(HEALING_PENALTY_BASE, severity));
 	}
 	public void applyAntidote()
 	{
@@ -183,7 +187,8 @@ public class PoisonedEntityTask extends CancellableRunnable implements Serializa
 			}
 			
 		}
-		livingEntity.removeMetadata(WeaponPoison.WEAPONPOISONED_METADATA, WeaponPoison.PLUGIN);
+		livingEntity.getPersistentDataContainer().remove(SavePlayerDataUtil.POISONED_ENTITY);
+		PoisonedEntitiesManager.remove(livingEntity);
 		this.cancel();
 	}
 	private void sendDamageMessage()
@@ -220,30 +225,13 @@ public class PoisonedEntityTask extends CancellableRunnable implements Serializa
 	}
 	public byte[] writeToBytes(ByteBuffer bb)
 	{
+		bb.putLong(livingEntity.getUniqueId().getMostSignificantBits());
 		bb.putLong(livingEntity.getUniqueId().getLeastSignificantBits());
-		bb.putLong(livingEntity.getUniqueId().getLeastSignificantBits());
+		bb.putLong(livingEntity.getWorld().getFullTime());
 		bb.putInt(severity);
 		bb.putInt(severityDrain);
 		bb.putInt(damageTimer);
 		return bb.array();
-	}
-	
-	private void writeObject(ObjectOutputStream out) throws IOException
-	{
-		out.writeObject(livingEntity.getUniqueId());
-		out.writeInt(severity);
-		out.writeInt(severityDrain);
-		out.writeInt(damageTimer);
-	}
-	private void readObject(ObjectInputStream in) throws IOException, ClassNotFoundException
-	{
-		UUID id = (UUID) in.readObject();
-		WeaponPoison.PLUGIN.getLogger().log(Level.INFO, "Loading weapon poison info UUID: " + id);
-		livingEntity = (LivingEntity) Bukkit.getServer().getEntity(id);
-		severity = in.readInt();
-		severityDrain = in.readInt();
-		damageTimer = in.readInt();
-		damage = recalculateDamage();
 	}
 	
 	public enum ClearReason

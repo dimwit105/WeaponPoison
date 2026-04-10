@@ -1,7 +1,9 @@
 package com.blaxout1213.WeaponPoison;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.logging.Level;
+import java.util.stream.Collectors;
 
 import com.blaxout1213.WeaponPoison.metadata.*;
 import com.blaxout1213.WeaponPoison.util.*;
@@ -16,19 +18,13 @@ import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
-import org.bukkit.event.entity.EntityDamageByEntityEvent;
-import org.bukkit.event.entity.EntityDeathEvent;
-import org.bukkit.event.entity.EntityExhaustionEvent;
+import org.bukkit.event.entity.*;
 import org.bukkit.event.entity.EntityExhaustionEvent.ExhaustionReason;
-import org.bukkit.event.entity.EntityPotionEffectEvent;
 import org.bukkit.event.entity.EntityPotionEffectEvent.Action;
-import org.bukkit.event.entity.EntityRegainHealthEvent;
-import org.bukkit.event.entity.EntityShootBowEvent;
-import org.bukkit.event.entity.PlayerDeathEvent;
-import org.bukkit.event.entity.ProjectileLaunchEvent;
 import org.bukkit.event.player.PlayerItemConsumeEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
+import org.bukkit.event.world.ChunkUnloadEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.potion.PotionEffect;
@@ -65,10 +61,10 @@ public class EventListener implements Listener
 					}
 				}
 			}
-			if(event.getDamager().hasMetadata(WeaponPoison.POISONABLE_METADATA))
+			if(event.getDamager().getPersistentDataContainer().has(WeaponPoison.POISONED_ITEM_KEY))
 			{
-				PoisonCausingEntityMeta pcem = (PoisonCausingEntityMeta) event.getDamager().getMetadata(WeaponPoison.POISONABLE_METADATA).get(0);
-				applyPoison(defender, pcem.getPoisonCausingEntity().severity, pcem.getPoisonCausingEntity().venom);
+				ItemPoisonData ipd = event.getDamager().getPersistentDataContainer().get(WeaponPoison.POISONED_ITEM_KEY, new ItemPoisonedDataType());
+				applyPoison(defender, ipd.getSeverity(), ipd.getVenom());
 			}
 		}
 	}
@@ -137,7 +133,7 @@ public class EventListener implements Listener
 		Player p = event.getPlayer();
 		if(PoisonedEntitiesManager.has(p) && event.getItem().getType() == Material.MILK_BUCKET)
 		{
-			DamageUtil.getWeaponPoisonTask(p).applyAntidote();
+			PoisonedEntitiesManager.get(p).applyAntidote();
 		}
 	}
 	@EventHandler
@@ -168,8 +164,7 @@ public class EventListener implements Listener
 			{
 				ItemPoisonData ipd = container.get(WeaponPoison.POISONED_ITEM_KEY, new ItemPoisonedDataType());
 				Entity e = event.getProjectile();
-				PoisonCausingEntityMeta pcem = new PoisonCausingEntityMeta(WeaponPoison.PLUGIN, new PoisonCausingEntity(ipd.getSeverity(), ipd.getVenom()));
-				e.setMetadata(WeaponPoison.POISONABLE_METADATA, pcem);
+				e.getPersistentDataContainer().set(WeaponPoison.POISONED_ITEM_KEY, new ItemPoisonedDataType(), ipd);
 			}
 		}
 	}
@@ -181,10 +176,9 @@ public class EventListener implements Listener
 		if(event.getEntity().getShooter() instanceof LivingEntity)
 		{
 			LivingEntity p = (LivingEntity) event.getEntity().getShooter();
-			if(p.hasMetadata(WeaponPoison.POISONABLE_METADATA))
+			if(p.getPersistentDataContainer().has(WeaponPoison.POISONED_ITEM_KEY))
 			{
-					PoisonCausingEntityMeta pcem = (PoisonCausingEntityMeta) p.getMetadata(WeaponPoison.POISONABLE_METADATA).get(0);
-					event.getEntity().setMetadata(WeaponPoison.POISONABLE_METADATA, pcem);
+				event.getEntity().getPersistentDataContainer().set(WeaponPoison.POISONED_ITEM_KEY, new ItemPoisonedDataType(), p.getPersistentDataContainer().get(WeaponPoison.POISONED_ITEM_KEY, new ItemPoisonedDataType()));
 			}
 			else
 			{
@@ -205,6 +199,17 @@ public class EventListener implements Listener
 			}
 		}
 	}
+	@EventHandler
+	public void chunkUnloadEvent(ChunkUnloadEvent event)
+	{
+		for (Entity entity : event.getChunk().getEntities())
+		{
+			if (entity instanceof LivingEntity le && !(le instanceof Player) && PoisonedEntitiesManager.has(le))
+			{
+				PoisonedEntitiesManager.violentRemove(le);
+			}
+		}
+	}
 	void checkForItemToPoison(Entity e, LivingEntity p, Material m)
 	{
 		ArrayList<ItemStack> hands = new ArrayList<ItemStack>();
@@ -218,8 +223,7 @@ public class EventListener implements Listener
 				if(container.has(WeaponPoison.POISONED_ITEM_KEY))
 				{
 					ItemPoisonData ipd = container.get(WeaponPoison.POISONED_ITEM_KEY, new ItemPoisonedDataType());
-					PoisonCausingEntityMeta pcem = new PoisonCausingEntityMeta(WeaponPoison.PLUGIN, new PoisonCausingEntity(ipd.getSeverity(), ipd.getVenom()));
-					e.setMetadata(WeaponPoison.POISONABLE_METADATA, pcem);
+					e.getPersistentDataContainer().set(WeaponPoison.POISONED_ITEM_KEY, new ItemPoisonedDataType(), ipd);
 				}
 				break;
 			}
@@ -227,10 +231,10 @@ public class EventListener implements Listener
 	}
 	void applyPoison(LivingEntity le, int severity, boolean venom)
 	{
-		if(le.hasMetadata(WeaponPoison.POISONABLE_METADATA)) { return; }
-		if(le.hasMetadata(WeaponPoison.WEAPONPOISONED_METADATA))
+		if(le.getPersistentDataContainer().has(WeaponPoison.POISONED_ITEM_KEY)) { return; }
+		if(PoisonedEntitiesManager.has(le))
 		{
-			PoisonedEntityTask data = DamageUtil.getWeaponPoisonTask(le);
+			PoisonedEntityTask data = PoisonedEntitiesManager.get(le);
 			if(!data.isVenom() && venom && le instanceof Player)
 			{
 				Player p = (Player)le;
@@ -241,10 +245,8 @@ public class EventListener implements Listener
 		else
 		{
 			PoisonedEntityTask poisonTask = new PoisonedEntityTask(le, severity, venom);
-			PoisonedEntityTaskMeta poisonTaskMeta = new PoisonedEntityTaskMeta(WeaponPoison.PLUGIN, poisonTask);
-			
-			WeaponPoison.PLUGIN.getFoliaLib().getImpl().runAtEntityTimer(le, poisonTask, 0, 20);
-			le.setMetadata(WeaponPoison.WEAPONPOISONED_METADATA, poisonTaskMeta);
+
+			PoisonedEntitiesManager.start(le, poisonTask);
 			if(le instanceof Player)
 			{
 				String s = "Accouncements.Messages.";

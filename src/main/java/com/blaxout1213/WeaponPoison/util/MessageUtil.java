@@ -16,7 +16,7 @@ public class MessageUtil
 	}
 	public static String prepareMessage(String message, LivingEntity le)
 	{
-		PoisonedEntityTask data = DamageUtil.getWeaponPoisonTask(le);
+		PoisonedEntityTask data = PoisonedEntitiesManager.get(le);
 		return prepareMessage(message, data);
 	}
 	public static String prepareMessage(String message, PoisonedEntityTask data)
